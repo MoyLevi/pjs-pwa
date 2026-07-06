@@ -75,33 +75,42 @@
             <span id="balanceCount" class="pill">Sin datos</span>
           </div>
 
-          <div class="filters balance-filters">
-            <section class="filter-block villa-filter-block">
-              <div class="filter-label">Villa</div>
-              <div id="villaRangeButtons" class="btn-strip wrap"></div>
-              <div id="villaButtons" class="btn-strip wrap villa-buttons" hidden></div>
+          <div class="filters-heading">Filtros:</div>
+          <div class="filters balance-filters accordion-filters">
+            <section class="filter-block villa-filter-block" data-filter-panel="villa">
+              <button class="filter-toggle" type="button" data-filter-toggle="villa">Villa</button>
+              <div class="filter-body" id="filterBodyVilla" hidden>
+                <div id="villaRangeButtons" class="btn-strip wrap"></div>
+                <div id="villaButtons" class="btn-strip wrap villa-buttons" hidden></div>
+              </div>
             </section>
 
-            <section class="filter-block">
-              <div class="filter-label">Año</div>
-              <div id="yearButtons" class="btn-strip wrap"></div>
+            <section class="filter-block" data-filter-panel="year">
+              <button class="filter-toggle" type="button" data-filter-toggle="year">Año</button>
+              <div class="filter-body" id="filterBodyYear" hidden>
+                <div id="yearButtons" class="btn-strip wrap"></div>
+              </div>
             </section>
 
-            <section class="filter-block months-filter-block">
-              <div class="filter-label">Meses</div>
-              <div id="monthButtons" class="btn-strip wrap"></div>
+            <section class="filter-block months-filter-block" data-filter-panel="months">
+              <button class="filter-toggle" type="button" data-filter-toggle="months">Meses</button>
+              <div class="filter-body" id="filterBodyMonths" hidden>
+                <div id="monthButtons" class="btn-strip wrap"></div>
+              </div>
             </section>
 
-            <section class="filter-block period-filter-block">
-              <div class="filter-label">Periodo rápido</div>
-              <div id="quickPeriodButtons" class="btn-strip wrap"></div>
-              <div id="customPeriodFields" class="custom-period-row" hidden>
-                <label>Desde
-                  <input id="periodFrom" type="month" />
-                </label>
-                <label>Hasta
-                  <input id="periodTo" type="month" />
-                </label>
+            <section class="filter-block period-filter-block" data-filter-panel="quick">
+              <button class="filter-toggle" type="button" data-filter-toggle="quick">Periodo Rápido</button>
+              <div class="filter-body" id="filterBodyQuick" hidden>
+                <div id="quickPeriodButtons" class="btn-strip wrap"></div>
+                <div id="customPeriodFields" class="custom-period-row" hidden>
+                  <label>Desde
+                    <input id="periodFrom" type="month" />
+                  </label>
+                  <label>Hasta
+                    <input id="periodTo" type="month" />
+                  </label>
+                </div>
               </div>
             </section>
 
@@ -121,7 +130,7 @@
             <table id="balanceTable"></table>
           </div>
           <div class="balance-actions">
-            <button id="exportBalancePdf" class="primary-btn export-btn" type="button">Exportar balance filtrado a PDF</button>
+            <button id="exportBalancePdf" class="primary-btn export-btn" type="button">Exportar Balance (PDF)</button>
           </div>
         </div>
       </section>
@@ -143,7 +152,7 @@
 
       <footer class="app-footer">
         <a class="leptonic-link" href="https://www.leptonic.com.mx" target="_blank" rel="noopener">© leptonic 2026</a>
-        <span class="app-version">v1.0.6</span>
+        <span class="app-version">v1.0.7</span>
       </footer>
     </main>
   </div>

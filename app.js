@@ -23,12 +23,13 @@ const SPECIAL_MODULES = {
   estadosCuenta: { label: 'Estados de Cuenta', type: 'pdfs', group: 'Fiscal', icon: '📄' },
 };
 
-const BALANCE_FILTER_KEY = 'pjs.balance.filters.v6';
+const BALANCE_FILTER_KEY = 'pjs.balance.filters.v7';
 const MTTO_CACHE_KEY = 'pjs.mtto.local.v3';
 const CSV_CACHE_PREFIX = 'pjs.csv.';
 const MONTHS = [1,2,3,4,5,6,7,8,9,10,11,12];
 const VILLA_RANGES = [
-  { label: '01-19', start: 1, end: 19 },
+  { label: '01-09', start: 1, end: 9 },
+  { label: '10-19', start: 10, end: 19 },
   { label: '20-29', start: 20, end: 29 },
   { label: '30-39', start: 30, end: 39 },
   { label: '40-49', start: 40, end: 49 },
@@ -37,7 +38,7 @@ const VILLA_RANGES = [
 ];
 let store = {};
 let currentCategory = '';
-let balanceState = { villa: 'all', villaRange: '', year: 'all', months: ['all'], quick: 'all', from: '', to: '' };
+let balanceState = { villa: 'all', villaRange: '', years: ['all'], months: ['all'], quick: 'all', from: '', to: '', activeFilter: '' };
 let lastBalanceRows = [];
 let lastBalanceColumns = [];
 
@@ -82,6 +83,12 @@ function bindNavigation() {
   $('#periodTo').addEventListener('change', () => updateBalanceState({ to: $('#periodTo').value }));
   $('#tableSelector').addEventListener('change', async () => { await renderSelectedTable(); });
   $('#exportBalancePdf').addEventListener('click', exportBalancePdf);
+  document.querySelectorAll('[data-filter-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const current = balanceState.activeFilter === btn.dataset.filterToggle ? '' : btn.dataset.filterToggle;
+      updateBalanceState({ activeFilter: current }, false);
+    });
+  });
 }
 
 function openView(viewId) {
@@ -135,7 +142,9 @@ function renderModules(category) {
     `).join('')}
   `;
   $('#closeModules').addEventListener('click', () => {
-    $('#moduleGrid').hidden = true;
+    const grid = $('#moduleGrid');
+    grid.hidden = true;
+    grid.innerHTML = '';
     currentCategory = '';
     document.querySelectorAll('.category-card').forEach(item => item.classList.remove('active'));
     $('.topbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -278,7 +287,7 @@ function renderYearButtons() {
   const years = [...new Set([...baseYears, ...mttoYears])].sort();
   $('#yearButtons').innerHTML = [`<button class="filter-chip" type="button" data-year="all">Todos</button>`, ...years.map(y => `<button class="filter-chip" type="button" data-year="${y}">${y}</button>`)].join('');
   $('#yearButtons').querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => updateBalanceState({ year: btn.dataset.year }));
+    btn.addEventListener('click', () => toggleYear(btn.dataset.year));
   });
 }
 
@@ -301,12 +310,25 @@ function renderQuickPeriodButtons() {
   });
 }
 
-function updateBalanceState(patch) {
+function updateBalanceState(patch, render = true) {
   balanceState = { ...balanceState, ...patch };
   if (!Array.isArray(balanceState.months) || !balanceState.months.length) balanceState.months = ['all'];
+  if (!Array.isArray(balanceState.years) || !balanceState.years.length) balanceState.years = ['all'];
   saveBalanceFilters();
   setupBalanceFilters();
-  renderBalanceQuery();
+  if (render) renderBalanceQuery();
+}
+
+function toggleYear(year) {
+  let years = Array.isArray(balanceState.years) ? [...balanceState.years] : ['all'];
+  if (year === 'all') years = ['all'];
+  else {
+    years = years.filter(y => y !== 'all');
+    if (years.includes(year)) years = years.filter(y => y !== year);
+    else years.push(year);
+    if (!years.length) years = ['all'];
+  }
+  updateBalanceState({ years: years.sort() });
 }
 
 function toggleMonth(month) {
@@ -327,17 +349,19 @@ function syncBalanceControls() {
   $('#customPeriodFields').hidden = balanceState.quick !== 'custom';
   document.querySelectorAll('[data-range]').forEach(btn => btn.classList.toggle('active', (btn.dataset.range === 'all' && !balanceState.villaRange && balanceState.villa === 'all') || btn.dataset.range === balanceState.villaRange));
   document.querySelectorAll('[data-villa]').forEach(btn => btn.classList.toggle('active', btn.dataset.villa === balanceState.villa));
-  document.querySelectorAll('[data-year]').forEach(btn => btn.classList.toggle('active', btn.dataset.year === balanceState.year));
+  document.querySelectorAll('[data-year]').forEach(btn => btn.classList.toggle('active', balanceState.years.includes(btn.dataset.year)));
+  document.querySelectorAll('[data-filter-panel]').forEach(panel => panel.classList.toggle('open', panel.dataset.filterPanel === balanceState.activeFilter));
+  document.querySelectorAll('.filter-body').forEach(body => { body.hidden = body.parentElement.dataset.filterPanel !== balanceState.activeFilter; });
   document.querySelectorAll('[data-month]').forEach(btn => btn.classList.toggle('active', balanceState.months.includes(btn.dataset.month)));
   document.querySelectorAll('[data-quick]').forEach(btn => btn.classList.toggle('active', btn.dataset.quick === balanceState.quick));
 }
 
 function renderBalanceQuery() {
   let rows = [...(store.mtto || [])];
-  const { villa, year, months, quick, from, to } = balanceState;
+  const { villa, years, months, quick, from, to } = balanceState;
 
   if (villa !== 'all') rows = rows.filter(row => normalizeVilla(row['Villa']) === villa);
-  if (year !== 'all') rows = rows.filter(row => String(row['Año']) === year);
+  if (!years.includes('all')) rows = rows.filter(row => years.includes(String(row['Año'])));
   if (!months.includes('all')) rows = rows.filter(row => months.includes(String(Number(row['Mes']))));
   if (quick === 'last6') rows = getLastSixMonths(rows);
   if (quick === 'custom') rows = filterCustomPeriod(rows, from, to);
@@ -433,8 +457,9 @@ function formatCellValue(column, value) {
 }
 
 function columnClass(column) {
-  if (isMoneyColumn(column) || isNumericColumn(column)) return 'align-right';
+  if (['Villa','Fuente','Banco/Cta'].includes(column)) return 'align-center';
   if (isDateColumn(column) || ['Año', 'Mes'].includes(column)) return 'align-center';
+  if (isMoneyColumn(column) || isNumericColumn(column)) return 'align-right';
   return 'align-right';
 }
 
@@ -471,13 +496,17 @@ function saveBalanceFilters() {
 }
 
 function readSavedBalanceFilters() {
-  try { return JSON.parse(localStorage.getItem(BALANCE_FILTER_KEY) || '{}'); }
+  try {
+    const saved = JSON.parse(localStorage.getItem(BALANCE_FILTER_KEY) || '{}');
+    if (saved.year && !saved.years) saved.years = saved.year === 'all' ? ['all'] : [String(saved.year)];
+    return saved;
+  }
   catch { return {}; }
 }
 
 function clearBalanceFilters() {
   localStorage.removeItem(BALANCE_FILTER_KEY);
-  balanceState = { villa: 'all', villaRange: '', year: 'all', months: ['all'], quick: 'all', from: '', to: '' };
+  balanceState = { villa: 'all', villaRange: '', years: ['all'], months: ['all'], quick: 'all', from: '', to: '', activeFilter: '' };
   setupBalanceFilters();
   renderBalanceQuery();
   toast('Filtros reiniciados');
@@ -516,24 +545,75 @@ function normalizeStatus(value = '') {
   return 'verde';
 }
 
-function exportBalancePdf() {
+async function exportBalancePdf() {
   if (!lastBalanceRows.length) { toast('No hay registros para exportar'); return; }
-  const rowsHtml = lastBalanceRows.map(row => `<tr>${lastBalanceColumns.map(col => `<td>${formatCellValue(col, row[col] ?? '')}</td>`).join('')}</tr>`).join('');
-  const tableHtml = `<table><thead><tr>${lastBalanceColumns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
-  const summaryHtml = $('#villaSummary').hidden ? '' : $('#villaSummary').innerHTML;
   const printWindow = window.open('', '_blank');
   if (!printWindow) { toast('Permite ventanas emergentes para exportar'); return; }
+  printWindow.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Preparando PDF...</title></head><body style="font-family:Arial;padding:24px">Preparando balance...</body></html>');
+  printWindow.document.close();
+
+  if (!store.correos?.length) await loadCsv('correos', false);
+  const villa = balanceState.villa !== 'all' ? String(balanceState.villa).padStart(2, '0') : '';
+  const first = lastBalanceRows[0] || {};
+  const name = first['Nombre'] || lastBalanceRows.find(row => row['Nombre'])?.['Nombre'] || 'Sin nombre disponible';
+  const correo = villa ? getCorreoByVilla(villa) : '';
+  const pdfColumns = lastBalanceColumns;
+  const rowsHtml = lastBalanceRows.map(row => `<tr>${pdfColumns.map(col => `<td class="${columnClass(col)}">${formatCellValuePdf(col, row[col] ?? '')}</td>`).join('')}</tr>`).join('');
+  const tableHtml = `<table><thead><tr>${pdfColumns.map(col => `<th class="${columnClass(col)}">${escapeHtml(col)}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  const metaHtml = villa ? `
+    <section class="pdf-meta">
+      <div><strong>Villa:</strong> Villa ${villa}</div>
+      <div><strong>Nombre:</strong> ${escapeHtml(name)}</div>
+      <div><strong>correo:</strong> ${escapeHtml(correo || 'Sin correo disponible')}</div>
+    </section>` : '';
+  printWindow.document.open();
   printWindow.document.write(`
-    <!doctype html><html lang="es"><head><meta charset="utf-8"><title>Balance PJS</title>
+    <!doctype html><html lang="es"><head><meta charset="utf-8"><title>Privada Jardines del Sol</title>
     <style>
-      body{font-family:Montserrat,Arial,sans-serif;color:#18302f;padding:24px}h1{margin:0 0 8px}p{margin:0 0 18px;color:#566}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #dce6e1;padding:7px;text-align:right}th{background:#e4f4ee;color:#0f3d3e}.money-negative{color:#c62828;font-weight:800}.villa-lines,.observations-card{margin:10px 0;padding:10px;border:1px solid #dce6e1;border-radius:10px}.villa-lines div{margin:4px 0}.villa-lines span,.observations-card span{font-weight:800;margin-right:8px}@media print{button{display:none}}
+      body{font-family:Montserrat,Arial,sans-serif;color:#18302f;padding:24px}h1{margin:0 0 4px;text-align:center;color:#0f3d3e}h2{margin:0 0 18px;text-align:center;font-size:16px;color:#526b67;font-weight:700}.pdf-date{text-align:right;margin:0 0 12px;color:#566;font-size:12px}.pdf-meta{display:grid;gap:6px;margin:12px 0 16px;padding:12px;border:1px solid #dce6e1;border-radius:12px;background:#f7fbf9;font-size:12px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #dce6e1;padding:7px}th{text-align:center!important;background:#dff3ea;color:#0f3d3e}tbody tr:nth-child(even) td{background:#eef9f3}tbody tr:nth-child(odd) td{background:#fff}.align-right{text-align:right}.align-center{text-align:center}.money-negative{color:#c62828;font-weight:400}@media print{button{display:none}}
     </style></head><body>
-      <h1>Balance PJS</h1><p>Exportación de balance filtrado · ${new Date().toLocaleDateString('es-MX')}</p>
-      ${summaryHtml}<button onclick="window.print()">Guardar / imprimir PDF</button>${tableHtml}
+      <h1>Privada Jardines del Sol</h1><h2>Balance de Pagos</h2><p class="pdf-date">${formatTodayLong()}</p>
+      ${metaHtml}<button onclick="window.print()">Guardar / imprimir PDF</button>${tableHtml}
       <script>setTimeout(()=>window.print(),300)<\/script>
     </body></html>
   `);
   printWindow.document.close();
+}
+
+function formatCellValuePdf(column, value) {
+  if (isMoneyColumn(column)) return formatMoneyHtml(parseMoney(value));
+  if (isDateColumn(column)) return escapeHtml(formatDateLong(value));
+  return escapeHtml(value);
+}
+
+function getCorreoByVilla(villa) {
+  const row = (store.correos || []).find(item => normalizeVilla(item['Villa']) === String(Number(villa)));
+  return row?.['Correo'] || '';
+}
+
+function formatDateLong(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const slash = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (slash) {
+    const dd = slash[1].padStart(2, '0');
+    const mm = monthNames[Number(slash[2]) - 1] || slash[2];
+    const yyyy = slash[3].length === 2 ? `20${slash[3]}` : slash[3];
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  const dash = raw.toLowerCase().match(/^(\d{1,2})[-\/ ]([a-záéíóúñ]{3,})[-\/ ](\d{2,4})$/i);
+  if (dash) {
+    const yyyy = dash[3].length === 2 ? `20${dash[3]}` : dash[3];
+    return `${dash[1].padStart(2,'0')}/${dash[2].slice(0,3)}/${yyyy}`;
+  }
+  return raw;
+}
+
+function formatTodayLong() {
+  const d = new Date();
+  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return `${String(d.getDate()).padStart(2,'0')}/${months[d.getMonth()]}/${d.getFullYear()}`;
 }
 
 function escapeHtml(value) {
