@@ -1,21 +1,48 @@
 {
-  "name": "PJS Admin",
-  "short_name": "PJS",
-  "description": "Panel administrativo de Privada Jardines del Sol",
-  "start_url": "./index.html",
+  "id": "/pjs-pwa/",
+  "name": "PJS Admin - Privada Jardines del Sol",
+  "short_name": "PJS Admin",
+  "description": "Panel administrativo de Privada Jardines del Sol para consulta de hojas publicadas y balance por villa.",
+  "start_url": "/pjs-pwa/",
+  "scope": "/pjs-pwa/",
   "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait-primary",
   "background_color": "#eef3ef",
   "theme_color": "#0f3d3e",
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
   "icons": [
     {
-      "src": "assets/icons/icon-192.svg",
+      "src": "assets/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "assets/icons/icon-512.svg",
+      "src": "assets/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
