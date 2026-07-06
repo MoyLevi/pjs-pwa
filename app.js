@@ -164,7 +164,7 @@ function renderModules(category) {
         openView('tables');
         return;
       }
-      toast('Módulo preparado para siguiente fase. Aún no le ponemos turbo.');
+      toast('Módulo preparado para siguiente fase.');
     });
   });
 }
