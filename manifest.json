@@ -1,0 +1,21 @@
+{
+  "name": "PJS Admin",
+  "short_name": "PJS",
+  "description": "Panel administrativo de Privada Jardines del Sol",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#eef3ef",
+  "theme_color": "#0f3d3e",
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "assets/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

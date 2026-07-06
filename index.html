@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f3d3e" />
+  <title>PJS Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">PJS</div>
+        <div>
+          <p class="eyebrow">Privada</p>
+          <h1>Jardines del Sol</h1>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-btn active" data-view="home">Inicio</button>
+        <button class="nav-btn" data-view="query-balance">Balance por Villa</button>
+      </nav>
+
+      <div class="status-footer">
+        <div class="status-card">
+          <span class="status-dot"></span>
+          <div>
+            <strong>Modo online</strong>
+            <p>Datos actualizados en tiempo real.</p>
+          </div>
+        </div>
+        <a class="leptonic-link" href="https://www.leptonic.com.mx" target="_blank" rel="noopener">© leptonic 2026.</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Panel administrativo</p>
+          <h2 id="view-title">Bienvenida</h2>
+        </div>
+        <button id="refreshBtn" class="ghost-btn refresh-strong">Actualizar</button>
+      </header>
+
+      <section id="home" class="view active">
+        <div class="hero-card">
+          <div>
+            <p class="eyebrow">PWA administrativa</p>
+            <h3>Control inicial para PJS</h3>
+            <p>Consulta tablas, revisa información por módulo y prepara reportes.</p>
+          </div>
+          <button class="primary-btn" data-open-view="query-balance">Consultar Balance</button>
+        </div>
+
+        <section class="folder-grid" id="folderGrid"></section>
+      </section>
+
+      <section id="query-balance" class="view">
+        <div class="panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Consulta</p>
+              <h3>Balance por Villa</h3>
+            </div>
+            <span id="balanceCount" class="pill">Sin datos</span>
+          </div>
+
+          <div class="filters balance-filters">
+            <label>Villa
+              <select id="villaFilter"></select>
+            </label>
+            <label>Año
+              <select id="yearFilter"></select>
+            </label>
+            <label>Meses
+              <select id="monthFilter" multiple size="4"></select>
+            </label>
+            <label>Periodo rápido
+              <select id="quickPeriod">
+                <option value="all">Todo</option>
+                <option value="last6">Últimos 6 meses</option>
+                <option value="custom">Periodo específico</option>
+              </select>
+            </label>
+            <label class="custom-period-field">Desde
+              <input id="periodFrom" type="month" />
+            </label>
+            <label class="custom-period-field">Hasta
+              <input id="periodTo" type="month" />
+            </label>
+            <button id="clearBalanceFilters" class="clear-btn" type="button">Quitar filtros</button>
+          </div>
+
+          <div id="villaSummary" class="villa-summary" hidden></div>
+
+          <div class="kpi-grid">
+            <article class="kpi"><span>Pagos</span><strong id="kpiPago">$0.00</strong></article>
+            <article class="kpi"><span>Cargos</span><strong id="kpiCargos">$0.00</strong></article>
+            <article class="kpi"><span>Saldo</span><strong id="kpiSaldo">$0.00</strong></article>
+            <article class="kpi"><span>Registros</span><strong id="kpiRows">0</strong></article>
+          </div>
+
+          <div class="table-wrap">
+            <table id="balanceTable"></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="tables" class="view">
+        <div class="panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Explorador</p>
+              <h3>Hojas publicadas</h3>
+            </div>
+            <select id="tableSelector"></select>
+          </div>
+          <div class="table-wrap">
+            <table id="csvTable"></table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast">Listo</div>
+  <script src="app.js"></script>
+</body>
+</html>

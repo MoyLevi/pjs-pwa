@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="46" fill="#0f3d3e"/>
+  <circle cx="146" cy="46" r="26" fill="#c99b45" opacity=".95"/>
+  <path d="M42 132c26-52 56-74 108-83-29 24-44 53-49 89-14-15-33-18-59-6z" fill="#f2df9b"/>
+  <text x="96" y="112" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" font-weight="800" fill="#fff">PJS</text>
+</svg>
