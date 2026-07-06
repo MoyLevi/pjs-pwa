@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pjs-admin-v1.0.7';
+const CACHE_NAME = 'pjs-admin-v1.0.8';
 const APP_SHELL = [
   './',
   './index.html',

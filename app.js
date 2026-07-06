@@ -23,7 +23,7 @@ const SPECIAL_MODULES = {
   estadosCuenta: { label: 'Estados de Cuenta', type: 'pdfs', group: 'Fiscal', icon: '📄' },
 };
 
-const BALANCE_FILTER_KEY = 'pjs.balance.filters.v7';
+const BALANCE_FILTER_KEY = 'pjs.balance.filters.v8';
 const MTTO_CACHE_KEY = 'pjs.mtto.local.v3';
 const CSV_CACHE_PREFIX = 'pjs.csv.';
 const MONTHS = [1,2,3,4,5,6,7,8,9,10,11,12];
@@ -130,8 +130,11 @@ function renderCategoryGrid() {
 function renderModules(category) {
   currentCategory = category;
   const cards = MODULES[category].map(key => ({ key, ...(CSV_SOURCES[key] || SPECIAL_MODULES[key]) }));
-  $('#moduleGrid').hidden = false;
-  $('#moduleGrid').innerHTML = `
+  const moduleGrid = $('#moduleGrid');
+  moduleGrid.hidden = false;
+  moduleGrid.removeAttribute('hidden');
+  moduleGrid.style.display = '';
+  moduleGrid.innerHTML = `
     <div class="module-title active-${category.toLowerCase()}"><span>${category}</span><button class="mini-btn" id="closeModules">Ocultar</button></div>
     ${cards.map(card => `
       <article class="folder-card small-card" data-card="${card.key}" data-type="${card.type}">
@@ -144,10 +147,13 @@ function renderModules(category) {
   $('#closeModules').addEventListener('click', () => {
     const grid = $('#moduleGrid');
     grid.hidden = true;
+    grid.setAttribute('hidden', '');
     grid.innerHTML = '';
+    grid.style.display = 'none';
     currentCategory = '';
     document.querySelectorAll('.category-card').forEach(item => item.classList.remove('active'));
-    $('.topbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const focusTarget = $('.topbar') || $('.compact-hero') || document.body;
+    focusTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   document.querySelectorAll('.folder-card').forEach(card => {
     card.addEventListener('click', async () => {

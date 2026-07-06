@@ -54,3 +54,71 @@ tbody tr:nth-child(odd){background:#fff}
 th{text-align:center!important}.money-negative{font-weight:400!important;color:#c62828!important}td.align-center,th.align-center{text-align:center!important}td.align-right,th.align-right{text-align:right!important}
 @media(max-width:1200px){.accordion-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.clear-strong{grid-column:1/-1}}
 @media(max-width:760px){.accordion-filters{grid-template-columns:1fr!important}.filter-toggle{padding:11px 12px}.filter-chip{border-radius:10px}.mini-chip{border-radius:9px}}
+
+
+/* v1.0.8 corrección real de visibilidad, footer y filtros */
+[hidden]{display:none!important}
+#moduleGrid[hidden],
+.module-grid[hidden],
+.folder-grid[hidden]{display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;border:0!important}
+
+.app-footer{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:10px!important;
+  line-height:1!important;
+  padding:22px 0 8px!important;
+}
+.app-footer .leptonic-link{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  margin:0!important;
+  padding:0!important;
+  line-height:1!important;
+  text-decoration:none!important;
+  color:var(--brand)!important;
+  font-weight:900!important;
+}
+.app-footer .leptonic-link:hover,
+.app-footer .leptonic-link:focus{
+  text-decoration:none!important;
+}
+.app-version{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  margin:0!important;
+  padding:0!important;
+  line-height:1!important;
+  transform:none!important;
+  position:static!important;
+  font-size:.82rem!important;
+  font-weight:900!important;
+  color:var(--muted)!important;
+}
+
+.filter-block{border-radius:13px!important}
+.filter-toggle{border-radius:10px!important}
+.filter-chip{border-radius:9px!important}
+.mini-chip{border-radius:8px!important}
+
+.module-title{
+  background:linear-gradient(135deg,var(--brand),var(--brand-2))!important;
+  color:white!important;
+}
+.module-title .mini-btn{
+  background:rgba(255,255,255,.18)!important;
+  color:white!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+}
+
+.money-negative{
+  color:#c62828!important;
+  font-weight:400!important;
+}
+
+th{text-align:center!important}
+td.align-center, th.align-center{text-align:center!important}
+td.align-right, th.align-right{text-align:right!important}
