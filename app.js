@@ -23,11 +23,23 @@ const SPECIAL_MODULES = {
   estadosCuenta: { label: 'Estados de Cuenta', type: 'pdfs', group: 'Fiscal', icon: '📄' },
 };
 
-const BALANCE_FILTER_KEY = 'pjs.balance.filters.v4';
-const MTTO_CACHE_KEY = 'pjs.mtto.local.v2';
+const BALANCE_FILTER_KEY = 'pjs.balance.filters.v6';
+const MTTO_CACHE_KEY = 'pjs.mtto.local.v3';
 const CSV_CACHE_PREFIX = 'pjs.csv.';
+const MONTHS = [1,2,3,4,5,6,7,8,9,10,11,12];
+const VILLA_RANGES = [
+  { label: '01-19', start: 1, end: 19 },
+  { label: '20-29', start: 20, end: 29 },
+  { label: '30-39', start: 30, end: 39 },
+  { label: '40-49', start: 40, end: 49 },
+  { label: '50-59', start: 50, end: 59 },
+  { label: '60-66', start: 60, end: 66 },
+];
 let store = {};
 let currentCategory = '';
+let balanceState = { villa: 'all', villaRange: '', year: 'all', months: ['all'], quick: 'all', from: '', to: '' };
+let lastBalanceRows = [];
+let lastBalanceColumns = [];
 
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -36,12 +48,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindNavigation();
   renderCategoryGrid();
   renderTableSelector();
-  fillVillaFilter();
-  restoreBalanceFilters();
+  balanceState = { ...balanceState, ...readSavedBalanceFilters() };
   loadMttoFromLocalFirst();
   setupBalanceFilters();
   renderBalanceQuery();
   await ensureMttoReady(false);
+  setupBalanceFilters();
   renderBalanceQuery();
   registerServiceWorker();
 });
@@ -51,6 +63,7 @@ function bindNavigation() {
   $('#refreshBtn').addEventListener('click', async () => {
     if ($('#query-balance').classList.contains('active')) {
       await ensureMttoReady(true);
+      setupBalanceFilters();
       renderBalanceQuery();
       toast('Mtto actualizado');
       return;
@@ -64,12 +77,11 @@ function bindNavigation() {
     await ensureMttoReady(true);
     toast('Datos actualizados');
   });
-  ['villaFilter', 'yearFilter', 'quickPeriod', 'periodFrom', 'periodTo'].forEach(id => {
-    $('#' + id).addEventListener('change', () => { saveBalanceFilters(); renderBalanceQuery(); });
-  });
-  $('#monthFilter').addEventListener('change', () => { keepAllMonthOptionExclusive(); saveBalanceFilters(); renderBalanceQuery(); });
   $('#clearBalanceFilters').addEventListener('click', clearBalanceFilters);
+  $('#periodFrom').addEventListener('change', () => updateBalanceState({ from: $('#periodFrom').value }));
+  $('#periodTo').addEventListener('change', () => updateBalanceState({ to: $('#periodTo').value }));
   $('#tableSelector').addEventListener('change', async () => { await renderSelectedTable(); });
+  $('#exportBalancePdf').addEventListener('click', exportBalancePdf);
 }
 
 function openView(viewId) {
@@ -82,6 +94,7 @@ function openView(viewId) {
     setupBalanceFilters();
     renderBalanceQuery();
   }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function renderCategoryGrid() {
@@ -102,6 +115,7 @@ function renderCategoryGrid() {
     card.addEventListener('click', () => {
       document.querySelectorAll('.category-card').forEach(item => item.classList.toggle('active', item === card));
       renderModules(card.dataset.category);
+      setTimeout(() => $('#moduleGrid').scrollIntoView({ behavior: 'smooth', block: 'start' }), 90);
     });
   });
 }
@@ -111,7 +125,7 @@ function renderModules(category) {
   const cards = MODULES[category].map(key => ({ key, ...(CSV_SOURCES[key] || SPECIAL_MODULES[key]) }));
   $('#moduleGrid').hidden = false;
   $('#moduleGrid').innerHTML = `
-    <div class="module-title"><span>${category}</span><button class="mini-btn" id="closeModules">Ocultar</button></div>
+    <div class="module-title active-${category.toLowerCase()}"><span>${category}</span><button class="mini-btn" id="closeModules">Ocultar</button></div>
     ${cards.map(card => `
       <article class="folder-card small-card" data-card="${card.key}" data-type="${card.type}">
         <div class="folder-icon">${card.icon}</div>
@@ -120,7 +134,12 @@ function renderModules(category) {
       </article>
     `).join('')}
   `;
-  $('#closeModules').addEventListener('click', () => { $('#moduleGrid').hidden = true; currentCategory = ''; });
+  $('#closeModules').addEventListener('click', () => {
+    $('#moduleGrid').hidden = true;
+    currentCategory = '';
+    document.querySelectorAll('.category-card').forEach(item => item.classList.remove('active'));
+    $('.topbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   document.querySelectorAll('.folder-card').forEach(card => {
     card.addEventListener('click', async () => {
       if (card.dataset.card === 'balance') return openView('query-balance');
@@ -141,13 +160,6 @@ function categoryIcon(name) {
 
 function renderTableSelector() {
   $('#tableSelector').innerHTML = Object.entries(CSV_SOURCES).map(([key, item]) => `<option value="${key}">${item.label}</option>`).join('');
-}
-
-function fillVillaFilter() {
-  $('#villaFilter').innerHTML = '<option value="all">Todas</option>' + Array.from({ length: 66 }, (_, i) => {
-    const villa = i + 1;
-    return `<option value="${villa}">Villa ${String(villa).padStart(2, '0')}</option>`;
-  }).join('');
 }
 
 function loadMttoFromLocalFirst() {
@@ -180,7 +192,6 @@ async function loadCsv(key, force = false) {
     const parsed = parseCsv(text);
     store[key] = parsed;
     saveCache(cacheKey, parsed);
-    if (key === 'mtto') setupBalanceFilters();
     return parsed;
   } catch (error) {
     console.error(`Error cargando ${source.label}:`, error);
@@ -225,39 +236,119 @@ function parseCsv(text) {
 }
 
 function setupBalanceFilters() {
-  const saved = readSavedBalanceFilters();
-  const mtto = store.mtto || [];
-  const years = [...new Set(mtto.map(row => row['Año']).filter(Boolean))].sort();
-  const months = [...new Set(mtto.map(row => row['Mes']).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
-  $('#yearFilter').innerHTML = '<option value="all">Todos</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
-  $('#monthFilter').innerHTML = '<option value="all">Todos</option>' + months.map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
-  applyBalanceFilters(saved);
+  renderVillaRanges();
+  renderVillaButtons();
+  renderYearButtons();
+  renderMonthButtons();
+  renderQuickPeriodButtons();
+  syncBalanceControls();
+}
+
+function renderVillaRanges() {
+  $('#villaRangeButtons').innerHTML = [
+    `<button class="filter-chip" type="button" data-range="all">Todas</button>`,
+    ...VILLA_RANGES.map(r => `<button class="filter-chip" type="button" data-range="${r.label}">${r.label}</button>`)
+  ].join('');
+  $('#villaRangeButtons').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const range = btn.dataset.range;
+      if (range === 'all') updateBalanceState({ villaRange: '', villa: 'all' });
+      else updateBalanceState({ villaRange: range, villa: 'all' });
+    });
+  });
+}
+
+function renderVillaButtons() {
+  const range = VILLA_RANGES.find(r => r.label === balanceState.villaRange);
+  if (!range) { $('#villaButtons').hidden = true; $('#villaButtons').innerHTML = ''; return; }
+  const buttons = [];
+  for (let villa = range.start; villa <= range.end; villa++) {
+    buttons.push(`<button class="filter-chip mini-chip" type="button" data-villa="${villa}">${String(villa).padStart(2, '0')}</button>`);
+  }
+  $('#villaButtons').hidden = false;
+  $('#villaButtons').innerHTML = buttons.join('');
+  $('#villaButtons').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => updateBalanceState({ villa: btn.dataset.villa }));
+  });
+}
+
+function renderYearButtons() {
+  const mttoYears = [...new Set((store.mtto || []).map(row => row['Año']).filter(Boolean))].sort();
+  const baseYears = ['2021','2022','2023','2024','2025','2026'];
+  const years = [...new Set([...baseYears, ...mttoYears])].sort();
+  $('#yearButtons').innerHTML = [`<button class="filter-chip" type="button" data-year="all">Todos</button>`, ...years.map(y => `<button class="filter-chip" type="button" data-year="${y}">${y}</button>`)].join('');
+  $('#yearButtons').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => updateBalanceState({ year: btn.dataset.year }));
+  });
+}
+
+function renderMonthButtons() {
+  $('#monthButtons').innerHTML = [`<button class="filter-chip" type="button" data-month="all">Todos</button>`, ...MONTHS.map(m => `<button class="filter-chip mini-chip" type="button" data-month="${m}">${String(m).padStart(2, '0')}</button>`)].join('');
+  $('#monthButtons').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => toggleMonth(btn.dataset.month));
+  });
+}
+
+function renderQuickPeriodButtons() {
+  const periods = [
+    { value: 'all', label: 'Todo' },
+    { value: 'last6', label: '6 Meses' },
+    { value: 'custom', label: 'Específico' },
+  ];
+  $('#quickPeriodButtons').innerHTML = periods.map(p => `<button class="filter-chip" type="button" data-quick="${p.value}">${p.label}</button>`).join('');
+  $('#quickPeriodButtons').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => updateBalanceState({ quick: btn.dataset.quick }));
+  });
+}
+
+function updateBalanceState(patch) {
+  balanceState = { ...balanceState, ...patch };
+  if (!Array.isArray(balanceState.months) || !balanceState.months.length) balanceState.months = ['all'];
+  saveBalanceFilters();
+  setupBalanceFilters();
+  renderBalanceQuery();
+}
+
+function toggleMonth(month) {
+  let months = Array.isArray(balanceState.months) ? [...balanceState.months] : ['all'];
+  if (month === 'all') months = ['all'];
+  else {
+    months = months.filter(m => m !== 'all');
+    if (months.includes(month)) months = months.filter(m => m !== month);
+    else months.push(month);
+    if (!months.length) months = ['all'];
+  }
+  updateBalanceState({ months: months.sort((a,b) => Number(a) - Number(b)) });
+}
+
+function syncBalanceControls() {
+  $('#periodFrom').value = balanceState.from || '';
+  $('#periodTo').value = balanceState.to || '';
+  $('#customPeriodFields').hidden = balanceState.quick !== 'custom';
+  document.querySelectorAll('[data-range]').forEach(btn => btn.classList.toggle('active', (btn.dataset.range === 'all' && !balanceState.villaRange && balanceState.villa === 'all') || btn.dataset.range === balanceState.villaRange));
+  document.querySelectorAll('[data-villa]').forEach(btn => btn.classList.toggle('active', btn.dataset.villa === balanceState.villa));
+  document.querySelectorAll('[data-year]').forEach(btn => btn.classList.toggle('active', btn.dataset.year === balanceState.year));
+  document.querySelectorAll('[data-month]').forEach(btn => btn.classList.toggle('active', balanceState.months.includes(btn.dataset.month)));
+  document.querySelectorAll('[data-quick]').forEach(btn => btn.classList.toggle('active', btn.dataset.quick === balanceState.quick));
 }
 
 function renderBalanceQuery() {
   let rows = [...(store.mtto || [])];
-  const villa = $('#villaFilter').value;
-  const year = $('#yearFilter').value;
-  const months = getSelectedMonths();
-  const quick = $('#quickPeriod').value;
-  const periodFrom = $('#periodFrom').value;
-  const periodTo = $('#periodTo').value;
-
-  document.querySelector('.balance-filters').classList.toggle('custom-period-active', quick === 'custom');
+  const { villa, year, months, quick, from, to } = balanceState;
 
   if (villa !== 'all') rows = rows.filter(row => normalizeVilla(row['Villa']) === villa);
   if (year !== 'all') rows = rows.filter(row => String(row['Año']) === year);
-  if (!months.includes('all')) rows = rows.filter(row => months.includes(String(row['Mes'])));
+  if (!months.includes('all')) rows = rows.filter(row => months.includes(String(Number(row['Mes']))));
   if (quick === 'last6') rows = getLastSixMonths(rows);
-  if (quick === 'custom') rows = filterCustomPeriod(rows, periodFrom, periodTo);
+  if (quick === 'custom') rows = filterCustomPeriod(rows, from, to);
 
   const totalPago = rows.reduce((sum, row) => sum + parseMoney(row['Pago']), 0);
   const totalCargos = rows.reduce((sum, row) => sum + parseMoney(row['Anticipada']) + parseMoney(row['Normal']), 0);
   const saldoCalculado = totalCargos - totalPago;
 
-  $('#kpiPago').textContent = money.format(totalPago);
-  $('#kpiCargos').textContent = money.format(totalCargos);
-  $('#kpiSaldo').textContent = money.format(saldoCalculado);
+  $('#kpiPago').textContent = formatMoney(totalPago);
+  $('#kpiCargos').textContent = formatMoney(totalCargos);
+  $('#kpiSaldo').innerHTML = formatMoneyHtml(saldoCalculado);
   $('#kpiRows').textContent = rows.length;
   $('#balanceCount').textContent = `${rows.length} registro${rows.length === 1 ? '' : 's'}`;
 
@@ -267,6 +358,8 @@ function renderBalanceQuery() {
   const columns = singleVilla
     ? ['Año', 'Mes', 'Anticipada', 'Normal', 'Dia Pago', 'Pago', 'Fuente', 'Banco/Cta', 'Saldo']
     : ['Año', 'Mes', 'Villa', 'Nombre', 'Anticipada', 'Normal', 'Dia Pago', 'Pago', 'Fuente', 'Banco/Cta', 'Saldo'];
+  lastBalanceRows = rows;
+  lastBalanceColumns = columns;
   renderTable('#balanceTable', rows, columns);
 }
 
@@ -275,12 +368,15 @@ function renderVillaSummary(singleVilla, villa, rows) {
   if (!singleVilla) { summary.hidden = true; summary.innerHTML = ''; return; }
   const first = rows[0] || {};
   const name = first['Nombre'] || rows.find(row => row['Nombre'])?.['Nombre'] || 'Sin nombre disponible';
+  const status = first['Status'] || 'Verde';
   summary.hidden = false;
   summary.innerHTML = `
-    <article class="villa-info-card"><span>Villa</span><strong>Villa ${String(villa).padStart(2, '0')}</strong></article>
-    <article class="villa-info-card"><span>Nombre</span><strong>${escapeHtml(name)}</strong></article>
-    <article class="villa-info-card"><span>Status</span><strong>Verde</strong></article>
-    <article class="villa-info-card"><span>Observaciones</span><strong>Falta Cerco</strong></article>
+    <div class="villa-lines">
+      <div><span>Villa</span><strong>Villa ${String(villa).padStart(2, '0')}</strong></div>
+      <div><span>Nombre</span><strong>${escapeHtml(name)}</strong></div>
+      <div class="status-line status-${normalizeStatus(status)}"><span>Status</span><strong>${escapeHtml(status)}</strong></div>
+    </div>
+    <article class="villa-info-card observations-card"><span>Observaciones</span><strong>Falta Cerco</strong></article>
   `;
 }
 
@@ -319,35 +415,59 @@ function renderTable(selector, rows, preferredColumns = null) {
   if (!rows.length) { table.innerHTML = '<tbody><tr><td>No hay datos para mostrar.</td></tr></tbody>'; return; }
   const columns = preferredColumns || Object.keys(rows[0]).filter(col => !['x'].includes(col));
   table.innerHTML = `
-    <thead><tr>${columns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(row => `<tr>${columns.map(col => `<td>${escapeHtml(row[col] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody>
+    <thead><tr>${columns.map(col => `<th class="${columnClass(col)}">${escapeHtml(col)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(row => `<tr>${columns.map(col => renderCell(col, row[col] ?? '')).join('')}</tr>`).join('')}</tbody>
   `;
 }
 
-function keepAllMonthOptionExclusive() {
-  const monthFilter = $('#monthFilter');
-  const selected = [...monthFilter.selectedOptions].map(option => option.value);
-  if (selected.includes('all') && selected.length > 1) {
-    [...monthFilter.options].forEach(option => option.selected = option.value !== 'all' && option.selected);
+function renderCell(column, value) {
+  const cls = columnClass(column);
+  const display = formatCellValue(column, value);
+  return `<td class="${cls}">${display}</td>`;
+}
+
+function formatCellValue(column, value) {
+  if (isMoneyColumn(column)) return formatMoneyHtml(parseMoney(value));
+  if (isDateColumn(column)) return escapeHtml(formatDateShort(value));
+  return escapeHtml(value);
+}
+
+function columnClass(column) {
+  if (isMoneyColumn(column) || isNumericColumn(column)) return 'align-right';
+  if (isDateColumn(column) || ['Año', 'Mes'].includes(column)) return 'align-center';
+  return 'align-right';
+}
+
+function isMoneyColumn(column) {
+  return ['Mora','Anticipada','Normal','Pegar','Pago','Abono','Saldo','Monto'].includes(column);
+}
+
+function isNumericColumn(column) {
+  return ['Villa','Casa','Pax'].includes(column);
+}
+
+function isDateColumn(column) {
+  return ['Fecha','Dia Pago','dia pago','Día Pago'].includes(column);
+}
+
+function formatDateShort(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const slash = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (slash) {
+    const dd = slash[1].padStart(2, '0');
+    const mm = monthNames[Number(slash[2]) - 1] || slash[2];
+    const yy = slash[3].slice(-2);
+    return `${dd}/${mm}/${yy}`;
   }
-}
-
-function getSelectedMonths() {
-  const values = [...$('#monthFilter').selectedOptions].map(option => option.value);
-  return values.length ? values : ['all'];
-}
-
-function setMultiSelectValues(selector, values) {
-  const el = $(selector);
-  if (!el) return;
-  const list = Array.isArray(values) ? values : [values];
-  [...el.options].forEach(option => option.selected = list.includes(option.value));
-  if (![...el.selectedOptions].length && el.options.length) el.options[0].selected = true;
+  const dash = raw.toLowerCase().match(/^(\d{1,2})[-\/ ]([a-záéíóúñ]{3,})[-\/ ](\d{2,4})$/i);
+  if (dash) return `${dash[1].padStart(2,'0')}/${dash[2].slice(0,3)}/${dash[3].slice(-2)}`;
+  return raw;
 }
 
 function saveBalanceFilters() {
-  const filters = { villa: $('#villaFilter').value, year: $('#yearFilter').value, months: getSelectedMonths(), quick: $('#quickPeriod').value, from: $('#periodFrom').value, to: $('#periodTo').value };
-  localStorage.setItem(BALANCE_FILTER_KEY, JSON.stringify(filters));
+  localStorage.setItem(BALANCE_FILTER_KEY, JSON.stringify(balanceState));
 }
 
 function readSavedBalanceFilters() {
@@ -355,36 +475,31 @@ function readSavedBalanceFilters() {
   catch { return {}; }
 }
 
-function restoreBalanceFilters() { applyBalanceFilters(readSavedBalanceFilters()); }
-
-function applyBalanceFilters(filters = {}) {
-  setSelectValue('#villaFilter', filters.villa || 'all');
-  setSelectValue('#yearFilter', filters.year || 'all');
-  setMultiSelectValues('#monthFilter', filters.months || filters.month || ['all']);
-  setSelectValue('#quickPeriod', filters.quick || 'all');
-  $('#periodFrom').value = filters.from || '';
-  $('#periodTo').value = filters.to || '';
-  document.querySelector('.balance-filters')?.classList.toggle('custom-period-active', $('#quickPeriod').value === 'custom');
-}
-
 function clearBalanceFilters() {
   localStorage.removeItem(BALANCE_FILTER_KEY);
-  applyBalanceFilters({ villa: 'all', year: 'all', months: ['all'], quick: 'all', from: '', to: '' });
+  balanceState = { villa: 'all', villaRange: '', year: 'all', months: ['all'], quick: 'all', from: '', to: '' };
+  setupBalanceFilters();
   renderBalanceQuery();
   toast('Filtros reiniciados');
 }
 
-function setSelectValue(selector, value) {
-  const el = $(selector);
-  if (!el) return;
-  const hasValue = [...el.options].some(option => option.value === value);
-  el.value = hasValue ? value : 'all';
+function parseMoney(value = '') {
+  const text = String(value).trim();
+  const isParenNegative = /^\(.*\)$/.test(text);
+  const clean = text.replace(/[$,\s()]/g, '');
+  const number = Number(clean);
+  if (!Number.isFinite(number)) return 0;
+  return isParenNegative ? -Math.abs(number) : number;
 }
 
-function parseMoney(value = '') {
-  const clean = String(value).replace(/[$,\s]/g, '').replace(/[()]/g, '-');
-  const number = Number(clean);
-  return Number.isFinite(number) ? number : 0;
+function formatMoney(value) {
+  return money.format(value || 0);
+}
+
+function formatMoneyHtml(value) {
+  const numeric = Number(value) || 0;
+  if (numeric < 0) return `<span class="money-negative">(${money.format(Math.abs(numeric))})</span>`;
+  return escapeHtml(money.format(numeric));
 }
 
 function normalizeVilla(value = '') {
@@ -392,9 +507,33 @@ function normalizeVilla(value = '') {
   return match ? String(Number(match[0])) : '';
 }
 
-function monthName(month) {
-  const names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  return names[Number(month) - 1] || month;
+function normalizeStatus(value = '') {
+  const clean = String(value).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (clean.includes('amarillo')) return 'amarillo';
+  if (clean.includes('rojo')) return 'rojo';
+  if (clean.includes('naranja')) return 'naranja';
+  if (clean.includes('negro')) return 'negro';
+  return 'verde';
+}
+
+function exportBalancePdf() {
+  if (!lastBalanceRows.length) { toast('No hay registros para exportar'); return; }
+  const rowsHtml = lastBalanceRows.map(row => `<tr>${lastBalanceColumns.map(col => `<td>${formatCellValue(col, row[col] ?? '')}</td>`).join('')}</tr>`).join('');
+  const tableHtml = `<table><thead><tr>${lastBalanceColumns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  const summaryHtml = $('#villaSummary').hidden ? '' : $('#villaSummary').innerHTML;
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) { toast('Permite ventanas emergentes para exportar'); return; }
+  printWindow.document.write(`
+    <!doctype html><html lang="es"><head><meta charset="utf-8"><title>Balance PJS</title>
+    <style>
+      body{font-family:Montserrat,Arial,sans-serif;color:#18302f;padding:24px}h1{margin:0 0 8px}p{margin:0 0 18px;color:#566}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #dce6e1;padding:7px;text-align:right}th{background:#e4f4ee;color:#0f3d3e}.money-negative{color:#c62828;font-weight:800}.villa-lines,.observations-card{margin:10px 0;padding:10px;border:1px solid #dce6e1;border-radius:10px}.villa-lines div{margin:4px 0}.villa-lines span,.observations-card span{font-weight:800;margin-right:8px}@media print{button{display:none}}
+    </style></head><body>
+      <h1>Balance PJS</h1><p>Exportación de balance filtrado · ${new Date().toLocaleDateString('es-MX')}</p>
+      ${summaryHtml}<button onclick="window.print()">Guardar / imprimir PDF</button>${tableHtml}
+      <script>setTimeout(()=>window.print(),300)<\/script>
+    </body></html>
+  `);
+  printWindow.document.close();
 }
 
 function escapeHtml(value) {

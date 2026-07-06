@@ -76,42 +76,52 @@
           </div>
 
           <div class="filters balance-filters">
-            <label>Villa
-              <select id="villaFilter"></select>
-            </label>
-            <label>Año
-              <select id="yearFilter"></select>
-            </label>
-            <label>Meses
-              <select id="monthFilter" multiple size="4"></select>
-            </label>
-            <label>Periodo rápido
-              <select id="quickPeriod">
-                <option value="all">Todo</option>
-                <option value="last6">Últimos 6 meses</option>
-                <option value="custom">Periodo específico</option>
-              </select>
-            </label>
-            <label class="custom-period-field">Desde
-              <input id="periodFrom" type="month" />
-            </label>
-            <label class="custom-period-field">Hasta
-              <input id="periodTo" type="month" />
-            </label>
-            <button id="clearBalanceFilters" class="clear-btn" type="button">Quitar filtros</button>
+            <section class="filter-block villa-filter-block">
+              <div class="filter-label">Villa</div>
+              <div id="villaRangeButtons" class="btn-strip wrap"></div>
+              <div id="villaButtons" class="btn-strip wrap villa-buttons" hidden></div>
+            </section>
+
+            <section class="filter-block">
+              <div class="filter-label">Año</div>
+              <div id="yearButtons" class="btn-strip wrap"></div>
+            </section>
+
+            <section class="filter-block months-filter-block">
+              <div class="filter-label">Meses</div>
+              <div id="monthButtons" class="btn-strip wrap"></div>
+            </section>
+
+            <section class="filter-block period-filter-block">
+              <div class="filter-label">Periodo rápido</div>
+              <div id="quickPeriodButtons" class="btn-strip wrap"></div>
+              <div id="customPeriodFields" class="custom-period-row" hidden>
+                <label>Desde
+                  <input id="periodFrom" type="month" />
+                </label>
+                <label>Hasta
+                  <input id="periodTo" type="month" />
+                </label>
+              </div>
+            </section>
+
+            <button id="clearBalanceFilters" class="clear-btn clear-strong" type="button">Quitar filtros</button>
           </div>
 
           <div id="villaSummary" class="villa-summary" hidden></div>
 
           <div class="kpi-grid">
-            <article class="kpi"><span>Pagos</span><strong id="kpiPago">$0.00</strong></article>
             <article class="kpi"><span>Cargos</span><strong id="kpiCargos">$0.00</strong></article>
+            <article class="kpi"><span>Pagos</span><strong id="kpiPago">$0.00</strong></article>
             <article class="kpi"><span>Saldo</span><strong id="kpiSaldo">$0.00</strong></article>
             <article class="kpi"><span>Registros</span><strong id="kpiRows">0</strong></article>
           </div>
 
           <div class="table-wrap">
             <table id="balanceTable"></table>
+          </div>
+          <div class="balance-actions">
+            <button id="exportBalancePdf" class="primary-btn export-btn" type="button">Exportar balance filtrado a PDF</button>
           </div>
         </div>
       </section>
@@ -133,6 +143,7 @@
 
       <footer class="app-footer">
         <a class="leptonic-link" href="https://www.leptonic.com.mx" target="_blank" rel="noopener">© leptonic 2026</a>
+        <span class="app-version">v1.0.6</span>
       </footer>
     </main>
   </div>
