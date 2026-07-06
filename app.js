@@ -23,7 +23,7 @@ const SPECIAL_MODULES = {
   estadosCuenta: { label: 'Estados de Cuenta', type: 'pdfs', group: 'Fiscal', icon: '📄' },
 };
 
-const BALANCE_FILTER_KEY = 'pjs.balance.filters.v3';
+const BALANCE_FILTER_KEY = 'pjs.balance.filters.v4';
 const MTTO_CACHE_KEY = 'pjs.mtto.local.v2';
 const CSV_CACHE_PREFIX = 'pjs.csv.';
 let store = {};
@@ -99,7 +99,10 @@ function renderCategoryGrid() {
     </article>
   `).join('');
   document.querySelectorAll('.category-card').forEach(card => {
-    card.addEventListener('click', () => renderModules(card.dataset.category));
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.category-card').forEach(item => item.classList.toggle('active', item === card));
+      renderModules(card.dataset.category);
+    });
   });
 }
 
