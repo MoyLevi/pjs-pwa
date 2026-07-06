@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0f3d3e" />
-  <meta name="description" content="Panel administrativo PJS para consultas CSV y Balance por Villa." />
+  <meta name="description" content="Panel administrativo PJS para consultas CSV y Balances por Villa." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="PJS Admin" />
@@ -29,7 +29,7 @@
 
       <nav class="nav">
         <button class="nav-btn active" data-view="home">Inicio</button>
-        <button class="nav-btn" data-view="query-balance">Balance por Villa</button>
+        <button class="nav-btn" data-view="query-balance">Balances</button>
       </nav>
 
       <div class="status-footer">
@@ -40,7 +40,6 @@
             <p>Datos actualizados en tiempo real.</p>
           </div>
         </div>
-        <a class="leptonic-link" href="https://www.leptonic.com.mx" target="_blank" rel="noopener">© leptonic 2026.</a>
       </div>
     </aside>
 
@@ -54,16 +53,16 @@
       </header>
 
       <section id="home" class="view active">
-        <div class="hero-card">
+        <div class="hero-card compact-hero">
           <div>
             <p class="eyebrow">PWA administrativa</p>
             <h3>Control inicial para PJS</h3>
-            <p>Consulta tablas, revisa información por módulo y prepara reportes.</p>
+            <p>Consulta rápida por módulos: privada, directorio, finanzas y fiscal.</p>
           </div>
-          <button class="primary-btn" data-open-view="query-balance">Consultar Balance</button>
         </div>
 
-        <section class="folder-grid" id="folderGrid"></section>
+        <section class="category-grid" id="categoryGrid"></section>
+        <section class="folder-grid module-grid" id="moduleGrid" hidden></section>
       </section>
 
       <section id="query-balance" class="view">
@@ -71,7 +70,7 @@
           <div class="panel-title">
             <div>
               <p class="eyebrow">Consulta</p>
-              <h3>Balance por Villa</h3>
+              <h3>Balances</h3>
             </div>
             <span id="balanceCount" class="pill">Sin datos</span>
           </div>
@@ -131,6 +130,10 @@
           </div>
         </div>
       </section>
+
+      <footer class="app-footer">
+        <a class="leptonic-link" href="https://www.leptonic.com.mx" target="_blank" rel="noopener">© leptonic 2026.</a>
+      </footer>
     </main>
   </div>
 
